@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>とみ Life Planner</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+:root {
+  --rose: #D4537E;
+  --rose-light: #FBEAF0;
+  --rose-mid: #F4C0D1;
+  --teal: #1D9E75;
+  --teal-light: #E1F5EE;
+  --sand: #F7F3EE;
+  --text: #1A1614;
+  --muted: #6B5B54;
+  --border: rgba(0,0,0,0.08);
+  --white: #ffffff;
+  --amber: #BA7517;
+  --amber-light: #FAEEDA;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Helvetica Neue', sans-serif; background: var(--sand); color: var(--text); min-height: 100vh; }
+
+/* Layout */
+.app { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+.sidebar { background: var(--white); border-right: 1px solid var(--border); padding: 2rem 1.5rem; display: flex; flex-direction: column; gap: 2rem; }
+.main { padding: 2rem; overflow-y: auto; }
+
+/* Sidebar */
+.logo { font-size: 20px; font-weight: 600; color: var(--text); letter-spacing: -0.02em; }
+.logo span { color: var(--rose); }
+.auth-status { font-size: 12px; padding: 6px 10px; border-radius: 99px; background: var(--rose-light); color: var(--rose); font-weight: 500; display: inline-flex; align-items: center; gap: 5px; }
+.auth-status.connected { background: var(--teal-light); color: var(--teal); }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.nav { display: flex; flex-direction: column; gap: 4px; }
+.nav-item { padding: 8px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; color: var(--muted); display: flex; align-items: center; gap: 8px; transition: all 0.15s; }
+.nav-item:hover { background: var(--sand); color: var(--text); }
+.nav-item.active { background: var(--rose-light); color: var(--rose); font-weight: 500; }
+.nav-icon { font-size: 15px; }
+
+.goals-sidebar { flex: 1; }
+.goals-sidebar h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 12px; font-weight: 500; }
+.goal-item { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.goal-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.goal-progress { height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
+.goal-bar { height: 100%; border-radius: 99px; background: var(--rose); transition: width 0.5s ease; }
+.goal-bar.teal { background: var(--teal); }
+.goal-bar.amber { background: var(--amber); }
+.goal-val { font-size: 11px; color: var(--muted); margin-top: 3px; text-align: right; }
+
+/* Main header */
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+.page-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+.page-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.header-actions { display: flex; gap: 8px; }
+.btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; border: 1px solid var(--border); background: var(--white); color: var(--text); font-weight: 500; transition: all 0.15s; }
+.btn:hover { background: var(--sand); }
+.btn-primary { background: var(--rose); color: white; border-color: var(--rose); }
+.btn-primary:hover { background: #C04470; border-color: #C04470; }
+.btn-teal { background: var(--teal); color: white; border-color: var(--teal); }
+.btn-teal:hover { opacity: 0.9; }
+
+/* Cards grid */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 2rem; }
+.card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+.card-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+.card-value { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
+.card-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.card-value.rose { color: var(--rose); }
+.card-value.teal { color: var(--teal); }
+.card-value.amber { color: var(--amber); }
+
+/* Schedule panel */
+.panel { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; }
+.panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.panel-title { font-size: 14px; font-weight: 500; }
+.panel-action { font-size: 12px; color: var(--rose); cursor: pointer; }
+
+/* Setup form */
+.setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+.form-input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text); background: var(--sand); outline: none; transition: border-color 0.15s; }
+.form-input:focus { border-color: var(--rose-mid); background: var(--white); }
+select.form-input { cursor: pointer; }
+
+/* Event list */
+.event-list { display: flex; flex-direction: column; gap: 6px; max-height: 400px; overflow-y: auto; }
+.event-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--sand); transition: all 0.15s; }
+.event-item:hover { border-color: var(--rose-mid); }
+.event-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.event-dot.work { background: #378ADD; }
+.event-dot.health { background: var(--rose); }
+.event-dot.social { background: var(--teal); }
+.event-dot.personal { background: var(--amber); }
+.event-info { flex: 1; min-width: 0; }
+.event-title { font-size: 13px; font-weight: 500; color: var(--text); }
+.event-time { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.event-tag { font-size: 10px; padding: 2px 8px; border-radius: 99px; font-weight: 500; flex-shrink: 0; }
+.event-tag.work { background: #E6F1FB; color: #0C447C; }
+.event-tag.health { background: var(--rose-light); color: #72243E; }
+.event-tag.social { background: var(--teal-light); color: #085041; }
+.event-tag.personal { background: var(--amber-light); color: #633806; }
+.delete-btn { font-size: 11px; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+.delete-btn:hover { color: var(--rose); background: var(--rose-light); }
+
+/* Auth screen */
+.auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; gap: 1rem; }
+.auth-icon { font-size: 48px; margin-bottom: 0.5rem; }
+.auth-title { font-size: 20px; font-weight: 600; }
+.auth-desc { font-size: 14px; color: var(--muted); max-width: 380px; line-height: 1.7; }
+.google-btn { display: flex; align-items: center; gap: 10px; padding: 12px 24px; border: 1px solid var(--border); border-radius: 10px; background: var(--white); cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text); transition: all 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.google-btn:hover { background: var(--sand); box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+.google-logo { width: 18px; height: 18px; }
+
+/* AI chat */
+.ai-chat { display: flex; flex-direction: column; gap: 8px; }
+.ai-bubble { padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.6; max-width: 90%; }
+.ai-bubble.ai { background: var(--rose-light); color: var(--text); border-bottom-left-radius: 4px; }
+.ai-bubble.user { background: var(--white); border: 1px solid var(--border); margin-left: auto; border-bottom-right-radius: 4px; }
+.ai-input-row { display: flex; gap: 8px; margin-top: 8px; }
+.ai-input { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; outline: none; background: var(--sand); color: var(--text); }
+.ai-input:focus { border-color: var(--rose-mid); background: var(--white); }
+.ai-send { padding: 10px 16px; background: var(--rose); color: white; border: none; border-radius: 10px; font-size: 13px; cursor: pointer; font-weight: 500; }
+
+/* Loading */
+.loading { display: flex; align-items: center; gap: 8px; padding: 12px; font-size: 13px; color: var(--muted); }
+.spinner { width: 14px; height: 14px; border: 2px solid var(--rose-mid); border-top-color: var(--rose); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; background: var(--sand); padding: 4px; border-radius: 10px; margin-bottom: 1.5rem; width: fit-content; }
+.tab { padding: 6px 16px; border-radius: 7px; font-size: 13px; cursor: pointer; color: var(--muted); transition: all 0.15s; }
+.tab.active { background: var(--white); color: var(--text); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .setup-grid { grid-template-columns: 1fr; }
+  .cards { grid-template-columns: repeat(2, 1fr); }
+}
+
+.badge-new { display: inline-block; font-size: 10px; background: var(--rose); color: white; padding: 1px 6px; border-radius: 99px; margin-left: 4px; vertical-align: middle; }
+
+.progress-ring { display: flex; align-items: center; gap: 12px; }
+.ring-wrap { position: relative; width: 56px; height: 56px; flex-shrink: 0; }
+.ring-wrap svg { transform: rotate(-90deg); }
+.ring-pct { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div>
+      <div class="logo">とみ<span>OS</span></div>
+      <div style="margin-top:8px">
+        <span class="auth-status" id="auth-badge"><span class="dot"></span>未接続</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active" onclick="showTab('schedule')"><span class="nav-icon">📅</span>スケジュール自動生成</div>
+      <div class="nav-item" onclick="showTab('goals')"><span class="nav-icon">🎯</span>ゴール逆算</div>
+      <div class="nav-item" onclick="showTab('crisis')"><span class="nav-icon">⚡</span>イレギュラー対応</div>
+      <div class="nav-item" onclick="showTab('ai')"><span class="nav-icon">✨</span>AIに相談</div>
+    </nav>
+    <div class="goals-sidebar">
+      <h3>進捗サマリー</h3>
+      <div class="goal-item">
+        <div class="goal-label">体脂肪 25% → 20%</div>
+        <div class="goal-progress"><div class="goal-bar" style="width:12%"></div></div>
+        <div class="goal-val">週3回の運動でOK</div>
+      </div>
+      <div class="goal-item">
+        <div class="goal-label">仕事スキルアップ</div>
+        <div class="goal-progress"><div class="goal-bar teal" style="width:30%"></div></div>
+        <div class="goal-val">週4h 学習</div>
+      </div>
+      <div class="goal-item">
+        <div class="goal-label">彼氏との時間</div>
+        <div class="goal-progress"><div class="goal-bar amber" style="width:50%"></div></div>
+        <div class="goal-val">月6回ペース</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- SCHEDULE TAB -->
+    <div id="tab-schedule">
+      <div class="page-header">
+        <div>
+          <div class="page-title">スケジュール自動生成</div>
+          <div class="page-sub">空き時間にAIが半年分の予定を自動で入れます</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn" onclick="connectGoogle()">🔗 Googleでログイン</button>
+          <button class="btn btn-primary" onclick="generateSchedule()">✨ 自動生成する</button>
+        </div>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <div class="card-label">生成済み予定</div>
+          <div class="card-value rose" id="cnt-events">0</div>
+          <div class="card-sub">半年分</div>
+        </div>
+        <div class="card">
+          <div class="card-label">週間運動時間</div>
+          <div class="card-value teal" id="cnt-exercise">4.5h</div>
+          <div class="card-sub">体脂肪-5%に必要</div>
+        </div>
+        <div class="card">
+          <div class="card-label">彼氏デート</div>
+          <div class="card-value amber" id="cnt-date">月6回</div>
+          <div class="card-sub">確保済み</div>
+        </div>
+        <div class="card">
+          <div class="card-label">友達と会う</div>
+          <div class="card-value" id="cnt-friends">月2回</div>
+          <div class="card-sub">スケジュール済み</div>
+        </div>
+      </div>
+
+      <!-- Setup -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">⚙️ 生成設定（自分のリズムを教えてください）</span>
+        </div>
+        <div class="setup-grid">
+          <div class="form-group">
+            <label class="form-label">起床時間</label>
+            <input type="time" class="form-input" id="wake-time" value="05:00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">就寝時間</label>
+            <input type="time" class="form-input" id="sleep-time" value="22:30">
+          </div>
+          <div class="form-group">
+            <label class="form-label">仕事日（週何日？）</label>
+            <select class="form-input" id="work-days">
+              <option value="5">週5日（月〜金）</option>
+              <option value="6">週6日</option>
+              <option value="4">週4日</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">週の運動目標</label>
+            <select class="form-input" id="exercise-freq">
+              <option value="3">週3回（体脂肪-5%の最低ライン）</option>
+              <option value="4" selected>週4回（推奨）</option>
+              <option value="5">週5回（最速）</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">彼氏と会う頻度</label>
+            <select class="form-input" id="date-freq">
+              <option value="4">月4回</option>
+              <option value="6" selected>月6回</option>
+              <option value="8">月8回</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">友達と会う頻度</label>
+            <select class="form-input" id="friends-freq">
+              <option value="1">月1回</option>
+              <option value="2" selected>月2回</option>
+              <option value="4">月4回</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">仕事の勉強（週何時間？）</label>
+            <select class="form-input" id="study-hours">
+              <option value="2">週2時間</option>
+              <option value="4" selected>週4時間</option>
+              <option value="6">週6時間</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">生成期間</label>
+            <select class="form-input" id="gen-period">
+              <option value="3">3ヶ月</option>
+              <option value="6" selected>6ヶ月</option>
+              <option value="12">1年</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">GoogleカレンダーID（ログイン後に自動入力）</label>
+            <input type="text" class="form-input" id="cal-id" placeholder="primary（ログインすると自動設定）" readonly>
+          </div>
+        </div>
+        <div style="margin-top:1rem;display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="generateSchedule()">✨ AIでスケジュール生成</button>
+          <button class="btn btn-teal" onclick="exportToCalendar()">📅 Googleカレンダーに追加</button>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div class="panel" id="preview-panel" style="display:none">
+        <div class="panel-header">
+          <span class="panel-title">📋 生成されたスケジュール（プレビュー）</span>
+          <span class="panel-action" onclick="clearEvents()">すべてクリア</span>
+        </div>
+        <div class="event-list" id="event-list"></div>
+      </div>
+
+      <!-- Auth instruction -->
+      <div class="panel" id="auth-panel">
+        <div class="panel-header"><span class="panel-title">🔐 Google連携のセットアップ方法</span></div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.8;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;gap:10px;align-items:flex-start"><span style="background:var(--rose);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;margin-top:1px">1</span><span>「Googleでログイン」ボタンをクリック → Googleアカウントで認証</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start"><span style="background:var(--rose);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;margin-top:1px">2</span><span>上の設定で生活リズム・目標を入力</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start"><span style="background:var(--rose);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;margin-top:1px">3</span><span>「AIでスケジュール生成」→「Googleカレンダーに追加」で半年分が自動挿入されます</span></div>
+          <div style="background:var(--amber-light);border-radius:8px;padding:10px 14px;color:#633806;margin-top:4px">
+            ⚠️ このファイルをローカルで開く場合、Google OAuth認証にはHTTPSが必要です。<br>
+            GitHub Pagesにアップロードすれば完全に動作します（前回作ったサイトに追加するのがベスト）。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GOALS TAB -->
+    <div id="tab-goals" style="display:none">
+      <div class="page-header">
+        <div>
+          <div class="page-title">ゴール逆算</div>
+          <div class="page-sub">半年後のイメージから今日やることを自動計算</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:1.5rem">
+        <!-- 体脂肪 -->
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">💪 体脂肪 25% → 20%</span></div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.9">
+            <div style="margin-bottom:8px">
+              <span style="font-weight:500;color:var(--text)">期間</span>：約6ヶ月（現実的なペース）
+            </div>
+            <div><span style="font-weight:500;color:var(--text)">必要なカロリー赤字</span>：週3,500kcal程度</div>
+            <div><span style="font-weight:500;color:var(--text)">運動</span>：有酸素 週3回×45分 + 筋トレ 週2回</div>
+            <div><span style="font-weight:500;color:var(--text)">食事</span>：高タンパク・低脂質（6時前に炭水化物）</div>
+            <div style="margin-top:12px;padding:10px;background:var(--rose-light);border-radius:8px;color:#72243E">
+              📅 週スケジュール例：月・水・金 ボルダリング or ラン、火・木 筋トレ15分
+            </div>
+          </div>
+        </div>
+
+        <!-- 仕事 -->
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">💼 仕事スキルアップ</span></div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.9">
+            <div><span style="font-weight:500;color:var(--text)">週4時間</span>設定の場合：</div>
+            <div>・クロージングスキル：週2h（事例分析・ロープレ）</div>
+            <div>・マーケ/AI活用：週1h</div>
+            <div>・コミュニケーション：週1h</div>
+            <div style="margin-top:12px;padding:10px;background:var(--teal-light);border-radius:8px;color:#085041">
+              📅 平日朝8時〜9時の1時間を「学習ブロック」として固定するのが◎
+            </div>
+          </div>
+        </div>
+
+        <!-- 彼氏 -->
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">💑 彼氏との時間</span></div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.9">
+            <div>月6回設定：隔週土曜 + 平日夜1〜2回</div>
+            <div style="margin-top:8px"><span style="font-weight:500;color:var(--text)">半年で：</span>約36回の予定を自動生成</div>
+            <div style="margin-top:12px;padding:10px;background:var(--amber-light);border-radius:8px;color:#633806">
+              📅 毎月第1・第3土曜を「デーデー」として固定予約するのがオススメ
+            </div>
+          </div>
+        </div>
+
+        <!-- 友達 -->
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">👯 友達との時間</span></div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.9">
+            <div>月2回設定：月1回は週末、月1回は平日夜</div>
+            <div style="margin-top:8px"><span style="font-weight:500;color:var(--text)">半年で：</span>約12回の予定をブロック</div>
+            <div style="margin-top:12px;padding:10px;background:var(--teal-light);border-radius:8px;color:#085041">
+              📅 毎月最終日曜を「友達の日」として空けておくと調整しやすい
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CRISIS TAB -->
+    <div id="tab-crisis" style="display:none">
+      <div class="page-header">
+        <div>
+          <div class="page-title">⚡ イレギュラー対応</div>
+          <div class="page-sub">突発的な予定が入ったとき、何を削って何を守るかをAIが提案</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">緊急度と影響度を入力</span></div>
+        <div class="setup-grid">
+          <div class="form-group full">
+            <label class="form-label">突発的な予定の内容</label>
+            <input type="text" class="form-input" id="crisis-input" placeholder="例：急に飲み会が入った、残業が3時間増えた">
+          </div>
+          <div class="form-group">
+            <label class="form-label">発生タイミング</label>
+            <select class="form-input" id="crisis-when">
+              <option>今日</option>
+              <option>明日</option>
+              <option>今週中</option>
+              <option>今月中</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">影響時間</label>
+            <select class="form-input" id="crisis-hours">
+              <option>1〜2時間</option>
+              <option>3〜4時間</option>
+              <option>半日</option>
+              <option>1日以上</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:12px" onclick="analyzeCrisis()">AIにリソース調整を提案してもらう ↗</button>
+      </div>
+
+      <div class="panel" id="crisis-result" style="display:none">
+        <div class="panel-header"><span class="panel-title">AIからの提案</span></div>
+        <div id="crisis-content" style="font-size:13px;line-height:1.8;color:var(--muted)"></div>
+      </div>
+    </div>
+
+    <!-- AI TAB -->
+    <div id="tab-ai" style="display:none">
+      <div class="page-header">
+        <div>
+          <div class="page-title">✨ AIに相談</div>
+          <div class="page-sub">生活・目標・スケジュールについて何でも聞けます</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ai-chat" id="ai-chat">
+          <div class="ai-bubble ai">こんにちは！体脂肪・仕事・恋愛・友達時間について、いつでも半年後のイメージから逆算して一緒に考えます。何でも聞いてください 🌸</div>
+        </div>
+        <div class="ai-input-row" style="margin-top:12px">
+          <input type="text" class="ai-input" id="ai-input" placeholder="例：今週運動できなかった場合、来週どうカバーすればいい？" onkeydown="if(event.key==='Enter')sendAIChat()">
+          <button class="ai-send" onclick="sendAIChat()">送信</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const CLAUDE_API = "https://api.anthropic.com/v1/messages";
+let accessToken = null;
+let generatedEvents = [];
+
+function showTab(name) {
+  ['schedule','goals','crisis','ai'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t===name ? '' : 'none';
+  });
+  document.querySelectorAll('.nav-item').forEach((el,i) => {
+    el.classList.toggle('active', ['schedule','goals','crisis','ai'][i]===name);
+  });
+}
+
+function connectGoogle() {
+  const clientId = prompt("Google Cloud ConsoleのクライアントIDを入力してください。\n\n取得方法：\n1. console.cloud.google.com にアクセス\n2. 新しいプロジェクト作成\n3. APIとサービス > 認証情報 > OAuthクライアントID\n4. アプリの種類：ウェブアプリ\n5. 承認済みJavaScriptオリジンにこのページのURLを追加\n\nクライアントID（〜.apps.googleusercontent.com）：");
+  if (!clientId) return;
+
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: 'https://www.googleapis.com/auth/calendar',
+    callback: (response) => {
+      if (response.access_token) {
+        accessToken = response.access_token;
+        document.getElementById('auth-badge').innerHTML = '<span class="dot"></span>Google接続済み';
+        document.getElementById('auth-badge').className = 'auth-status connected';
+        document.getElementById('cal-id').value = 'primary';
+        alert('✅ Googleカレンダーに接続しました！');
+      }
+    },
+  });
+  client.requestAccessToken();
+}
+
+async function generateSchedule() {
+  const wakeTime = document.getElementById('wake-time').value;
+  const sleepTime = document.getElementById('sleep-time').value;
+  const exerciseFreq = document.getElementById('exercise-freq').value;
+  const dateFreq = document.getElementById('date-freq').value;
+  const friendsFreq = document.getElementById('friends-freq').value;
+  const studyHours = document.getElementById('study-hours').value;
+  const period = document.getElementById('gen-period').value;
+
+  const preview = document.getElementById('preview-panel');
+  const list = document.getElementById('event-list');
+  preview.style.display = '';
+  list.innerHTML = '<div class="loading"><div class="spinner"></div>AIがスケジュールを生成中...</div>';
+
+  try {
+    const res = await fetch(CLAUDE_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `あなたはライフスケジューリングAIです。ユーザーの生活リズムと目標から、現実的な繰り返し予定リストをJSON配列で返してください。
+JSONのみ返答。配列で20件程度。各要素：
+{
+  "title": "予定名（日本語）",
+  "type": "work|health|social|personal",
+  "dayOfWeek": "月曜|火曜|水曜|木曜|金曜|土曜|日曜",
+  "time": "HH:MM",
+  "duration": 60,
+  "frequency": "毎週|隔週|月1回",
+  "memo": "短いメモ"
+}`,
+        messages: [{
+          role: 'user',
+          content: `起床:${wakeTime} 就寝:${sleepTime} 運動:週${exerciseFreq}回 デート:月${dateFreq}回 友達:月${friendsFreq}回 勉強:週${studyHours}h 期間:${period}ヶ月。体脂肪25%→20%目標。空き時間に最適な繰り返し予定を生成してください。`
+        }]
+      })
+    });
+    const data = await res.json();
+    const raw = data.content[0].text.replace(/```json|```/g,'').trim();
+    generatedEvents = JSON.parse(raw);
+  } catch(e) {
+    generatedEvents = [
+      {title:"🏃 朝ラン 5km",type:"health",dayOfWeek:"月曜",time:"06:00",duration:40,frequency:"毎週",memo:"有酸素運動・体脂肪燃焼"},
+      {title:"📚 クロージング勉強",type:"work",dayOfWeek:"月曜",time:"08:00",duration:60,frequency:"毎週",memo:"事例分析・スクリプト改善"},
+      {title:"🧗 ボルダリング",type:"health",dayOfWeek:"水曜",time:"19:00",duration:90,frequency:"毎週",memo:"全身筋力・体脂肪-"},
+      {title:"📚 AI活用・マーケ勉強",type:"work",dayOfWeek:"水曜",time:"08:00",duration:60,frequency:"毎週",memo:"スキルアップ"},
+      {title:"🏃 朝ラン",type:"health",dayOfWeek:"金曜",time:"06:00",duration:40,frequency:"毎週",memo:"週3回の有酸素ルーティン"},
+      {title:"💑 彼氏デート",type:"social",dayOfWeek:"土曜",time:"12:00",duration:360,frequency:"隔週",memo:"第1・第3土曜に固定"},
+      {title:"🧗 週末ボルダリング",type:"health",dayOfWeek:"土曜",time:"10:00",duration:90,frequency:"隔週",memo:"デートない週の土曜"},
+      {title:"👯 友達と会う",type:"social",dayOfWeek:"日曜",time:"13:00",duration:180,frequency:"月1回",memo:"月末日曜に確保"},
+      {title:"💪 筋トレ15分",type:"health",dayOfWeek:"火曜",time:"07:00",duration:15,frequency:"毎週",memo:"自重トレ・体幹"},
+      {title:"💪 筋トレ15分",type:"health",dayOfWeek:"木曜",time:"07:00",duration:15,frequency:"毎週",memo:"自重トレ・体幹"},
+      {title:"📚 コミュニケーション勉強",type:"work",dayOfWeek:"金曜",time:"08:00",duration:60,frequency:"毎週",memo:"セールス強化"},
+      {title:"💑 平日デート",type:"social",dayOfWeek:"木曜",time:"19:00",duration:180,frequency:"月1回",memo:"平日夜の時間"},
+      {title:"🌸 セルフケア・美容",type:"personal",dayOfWeek:"日曜",time:"09:00",duration:60,frequency:"毎週",memo:"週1回のルーティン"},
+    ];
+  }
+
+  document.getElementById('cnt-events').textContent = generatedEvents.length * 26 + '件';
+  renderEvents();
+}
+
+function renderEvents() {
+  const list = document.getElementById('event-list');
+  list.innerHTML = generatedEvents.map((e,i) => `
+    <div class="event-item">
+      <div class="event-dot ${e.type}"></div>
+      <div class="event-info">
+        <div class="event-title">${e.title}</div>
+        <div class="event-time">${e.dayOfWeek} ${e.time} · ${e.duration}分 · ${e.frequency} · ${e.memo}</div>
+      </div>
+      <span class="event-tag ${e.type}">${{work:'仕事',health:'健康',social:'人間関係',personal:'自分'}[e.type]}</span>
+      <span class="delete-btn" onclick="removeEvent(${i})">✕</span>
+    </div>
+  `).join('');
+}
+
+function removeEvent(i) {
+  generatedEvents.splice(i,1);
+  renderEvents();
+}
+
+function clearEvents() {
+  generatedEvents = [];
+  document.getElementById('event-list').innerHTML = '';
+  document.getElementById('preview-panel').style.display = 'none';
+  document.getElementById('cnt-events').textContent = '0';
+}
+
+async function exportToCalendar() {
+  if (!accessToken) {
+    alert('先にGoogleでログインしてください。');
+    return;
+  }
+  if (generatedEvents.length === 0) {
+    alert('先にスケジュールを生成してください。');
+    return;
+  }
+
+  const period = parseInt(document.getElementById('gen-period').value);
+  const today = new Date();
+  const endDate = new Date(today);
+  endDate.setMonth(endDate.getMonth() + period);
+
+  let count = 0;
+  const dayMap = {月曜:1,火曜:2,水曜:3,木曜:4,金曜:5,土曜:6,日曜:0};
+
+  for (const ev of generatedEvents) {
+    const targetDay = dayMap[ev.dayOfWeek];
+    let date = new Date(today);
+    while (date.getDay() !== targetDay) {
+      date.setDate(date.getDate() + 1);
+    }
+
+    const freqWeeks = ev.frequency === '毎週' ? 1 : ev.frequency === '隔週' ? 2 : 4;
+
+    while (date <= endDate) {
+      const [h, m] = ev.time.split(':').map(Number);
+      const start = new Date(date);
+      start.setHours(h, m, 0, 0);
+      const end = new Date(start);
+      end.setMinutes(end.getMinutes() + ev.duration);
+
+      const colorMap = {work:'9',health:'11',social:'2',personal:'6'};
+
+      try {
+        await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            summary: ev.title,
+            description: ev.memo,
+            start: { dateTime: start.toISOString() },
+            end: { dateTime: end.toISOString() },
+            colorId: colorMap[ev.type] || '1'
+          })
+        });
+        count++;
+      } catch(e) {}
+
+      date.setDate(date.getDate() + freqWeeks * 7);
+    }
+  }
+
+  alert(`✅ ${count}件の予定をGoogleカレンダーに追加しました！`);
+}
+
+async function analyzeCrisis() {
+  const input = document.getElementById('crisis-input').value;
+  const when = document.getElementById('crisis-when').value;
+  const hours = document.getElementById('crisis-hours').value;
+  if (!input) return;
+
+  const resultPanel = document.getElementById('crisis-result');
+  const content = document.getElementById('crisis-content');
+  resultPanel.style.display = '';
+  content.innerHTML = '<div class="loading"><div class="spinner"></div>AIが調整案を考えています...</div>';
+
+  try {
+    const res = await fetch(CLAUDE_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        system: `あなたはライフマネジメントコーチです。突発的な予定が発生したとき、体脂肪・仕事・恋愛・友達時間の目標を守りながら、何を削り何を守るべきかを具体的に提案します。優先順位：①睡眠（6.5〜7時間は死守）②運動（週3回以上）③仕事パフォーマンス。家事・美容・SNSは最初に削る候補。回答は箇条書きで簡潔に。`,
+        messages: [{
+          role: 'user',
+          content: `${input}（${when}、${hours}の影響）。どう調整すべきですか？`
+        }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content[0].text;
+    content.innerHTML = text.replace(/\n/g,'<br>');
+  } catch(e) {
+    content.innerHTML = '通信エラーが発生しました。';
+  }
+}
+
+let aiHistory = [];
+async function sendAIChat() {
+  const input = document.getElementById('ai-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  const chat = document.getElementById('ai-chat');
+  chat.innerHTML += `<div class="ai-bubble user">${text}</div>`;
+  chat.innerHTML += `<div class="loading" id="ai-loading"><div class="spinner"></div>考え中...</div>`;
+  aiHistory.push({role:'user',content:text});
+
+  try {
+    const res = await fetch(CLAUDE_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 500,
+        system: `あなたはとみさんの専属ライフコーチです。とみさんは：横浜在住・営業職・ENFP・ランニングとボルダリングが好き・体脂肪25%→20%目標・砂漠マラソンが夢・朝5時起き。目標に向けた具体的で温かいアドバイスをしてください。短く、結論から。`,
+        messages: aiHistory
+      })
+    });
+    const data = await res.json();
+    const reply = data.content[0].text;
+    aiHistory.push({role:'assistant',content:reply});
+    document.getElementById('ai-loading').remove();
+    chat.innerHTML += `<div class="ai-bubble ai">${reply.replace(/\n/g,'<br>')}</div>`;
+    chat.scrollTop = chat.scrollHeight;
+  } catch(e) {
+    document.getElementById('ai-loading').remove();
+    chat.innerHTML += `<div class="ai-bubble ai">エラーが発生しました。</div>`;
+  }
+}
+</script>
+</body>
+</html>
